@@ -1,10 +1,11 @@
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const axios = require('axios');
 
-const GITHUB_TOKEN = "TU_TOKEN_AQUI"; // Reemplaza con tu token de GitHub
-const OWNER = "jramos0"; // Reemplaza con el usuario u organización de GitHub
+const GITHUB_TOKEN = process.env.Token; // Reemplaza con tu token de GitHub
+const OWNER = "juarez009"; // Reemplaza con el usuario u organización de GitHub
 const REPO = "bitcoin-educational-content"; // Reemplaza con el nombre del repositorio
 
 const rl = readline.createInterface({
