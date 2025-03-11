@@ -2,7 +2,7 @@
 
 ### 1- Ir al archivo .env y despues del igual del Token colocar tu token de generado de github
 
-### 2- Segundo colocar el dueño del repo (es decir tú) en el código.
+### 2- Segundo colocar el dueño del repo (es decir tú) y el repositorio a trabajar en el código.
 
 ### 3- Abrir la consola y escribir node init para inicializar este projecto
 
