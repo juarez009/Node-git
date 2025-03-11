@@ -1,6 +1,6 @@
 ### Tutorial 
 
-### 1- Ir al archivo .env y despues del igual del Token colocar tu token de generado de github
+### 1- Ir al archivo .env y despues deberas escribir Token = y tu token github
 
 ### 2- Segundo colocar el dueño del repo (es decir tú) y el repositorio a trabajar en el código.
 
