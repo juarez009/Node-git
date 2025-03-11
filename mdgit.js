@@ -4,9 +4,9 @@ const path = require('path');
 const readline = require('readline');
 const axios = require('axios');
 
-const GITHUB_TOKEN = process.env.Token; // Reemplaza con tu token de GitHub
-const OWNER = "juarez009"; // Reemplaza con el usuario u organización de GitHub
-const REPO = "bitcoin-educational-content"; // Reemplaza con el nombre del repositorio
+const GITHUB_TOKEN = process.env.Token; // Reemplaza con tu token de GitHub en las variables de entorno
+const OWNER = ""; // Reemplaza con el usuario u organización de GitHub
+const REPO = ""; // Reemplaza con el nombre del repositorio
 
 const rl = readline.createInterface({
     input: process.stdin,
