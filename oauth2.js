@@ -4,7 +4,6 @@ const path = require('path');
 const readline = require('readline');
 const axios = require('axios');
 
-const GITHUB_TOKEN = "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s"; // Reemplaza con tu token de GitHub en las variables de entorno
 const OWNER = "jramos0"; // Reemplaza con el usuario u organización de GitHub
 const REPO = "BEC-Github"; // Reemplaza con el nombre del repositorio
 
@@ -13,11 +12,24 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
+let accessToken = ""; // Variable para almacenar el accessToken
+
+// Función para pedir el accessToken al usuario
+function requestAccessToken() {
+    return new Promise((resolve) => {
+        rl.question("Ingrese su accessToken de GitHub OAuth2: ", (token) => {
+            accessToken = token.trim(); // Guardamos el token sin espacios
+            resolve();
+        });
+    });
+}
+
+// Función para crear una rama
 async function createBranch(branchName, baseBranch = 'main') {
     try {
         const repoUrl = `https://api.github.com/repos/${OWNER}/${REPO}/git/refs/heads/${baseBranch}`;
         const response = await axios.get(repoUrl, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         const sha = response.data.object.sha;
@@ -25,7 +37,7 @@ async function createBranch(branchName, baseBranch = 'main') {
             ref: `refs/heads/${branchName}`,
             sha: sha
         }, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         console.log(`✅ Rama '${branchName}' creada con éxito.`);
@@ -34,11 +46,12 @@ async function createBranch(branchName, baseBranch = 'main') {
     }
 }
 
+// Función para crear o actualizar un commit
 async function createOrUpdateCommit(branchName, filename, content, message) {
     try {
         // Obtener SHA de la rama
         const branchData = await axios.get(`https://api.github.com/repos/${OWNER}/${REPO}/git/ref/heads/${branchName}`, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
         const baseSha = branchData.data.object.sha;
 
@@ -47,12 +60,12 @@ async function createOrUpdateCommit(branchName, filename, content, message) {
             content: content,
             encoding: "utf-8"
         }, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         // Obtener el árbol base
         const treeData = await axios.get(`https://api.github.com/repos/${OWNER}/${REPO}/git/trees/${baseSha}`, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         // Crear un nuevo árbol
@@ -60,7 +73,7 @@ async function createOrUpdateCommit(branchName, filename, content, message) {
             base_tree: treeData.data.sha,
             tree: [{ path: filename, mode: "100644", type: "blob", sha: blob.data.sha }]
         }, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         // Crear el commit
@@ -69,14 +82,14 @@ async function createOrUpdateCommit(branchName, filename, content, message) {
             tree: newTree.data.sha,
             parents: [baseSha]
         }, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         // Actualizar la rama con el nuevo commit
         await axios.patch(`https://api.github.com/repos/${OWNER}/${REPO}/git/refs/heads/${branchName}`, {
             sha: commit.data.sha
         }, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
+            headers: { Authorization: `Bearer  ${accessToken}`, Accept: 'application/vnd.github.v3+json' }
         });
 
         console.log(`✅ Archivo '${filename}' actualizado y commit subido.`);
@@ -85,32 +98,10 @@ async function createOrUpdateCommit(branchName, filename, content, message) {
     }
 }
 
-async function createOrUpdatePullRequest(branchName, message) {
-    try {
-        // Verificar si ya existe un PR abierto
-        const existingPRs = await axios.get(`https://api.github.com/repos/${OWNER}/${REPO}/pulls?head=${OWNER}:${branchName}`, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
-        });
-
-        if (existingPRs.data.length > 0) {
-            console.log(`🔄 PR ya existe: ${existingPRs.data[0].html_url}`);
-            return;
-        }
-
-        // Crear nuevo PR
-        const prResponse = await axios.post(`https://api.github.com/repos/${OWNER}/${REPO}/pulls`, {
-            title: `🚀 Actualización de archivos: ${message}`,
-            head: branchName,
-            base: "dev",
-            body: `Este Pull Request actualiza los archivos en '${branchName}' hacia 'main'.\n\n**Descripción:**\n${message}`
-        }, {
-            headers: { Authorization: `Bearer JWT ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' }
-        });
-
-        console.log(`✅ Pull Request creado: ${prResponse.data.html_url}`);
-    } catch (error) {
-        console.error('❌ Error al crear o actualizar el Pull Request:', error.response?.data || error.message);
-    }
+// Función principal para iniciar el menú
+async function start() {
+    await requestAccessToken(); // Pedir el accessToken antes de empezar
+    showMenu();
 }
 
 function showMenu() {
@@ -127,7 +118,6 @@ function showMenu() {
                         rl.question('Ingrese el nombre de la rama a crear: ', async (branchName) => {
                             await createBranch(branchName);
                             await createOrUpdateCommit(branchName, filename, content, "Inicializando archivo");
-                            await createOrUpdatePullRequest(branchName, "Se ha agregado un nuevo archivo.");
                             showMenu();
                         });
                     });
@@ -138,7 +128,6 @@ function showMenu() {
                     rl.question('Ingrese el nuevo contenido: ', (content) => {
                         rl.question('Ingrese la rama a actualizar: ', async (branchName) => {
                             await createOrUpdateCommit(branchName, filename, content, "Actualizando archivo");
-                            await createOrUpdatePullRequest(branchName, "Se ha actualizado el archivo.");
                             showMenu();
                         });
                     });
@@ -164,4 +153,5 @@ function showMenu() {
     });
 }
 
-showMenu();
+// Iniciar el programa
+start();
