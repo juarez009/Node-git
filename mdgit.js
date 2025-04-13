@@ -47,7 +47,7 @@ async function createBranch(branchName) {
     }
 }
 
-async function createCommit(branchName, filename, content, message) {
+async function createCommit(branchName, filename, content, message, type) {
     try {
         const branchData = await axios.get(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/ref/heads/${branchName}`, {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
@@ -67,7 +67,7 @@ async function createCommit(branchName, filename, content, message) {
 
         const newTree = await axios.post(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/trees`, {
             base_tree: treeData.data.sha,
-            tree: [{ path: filename, mode: "100644", type: "blob", sha: blob.data.sha }]
+            tree: [{ path: `resources/${type}/${filename}`, mode: "100644", type: "blob", sha: blob.data.sha }]
         }, {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
         });
@@ -126,10 +126,11 @@ async function main() {
     const filename = "devop.md";
     const content = "# Nuevo contenido\nEste es un archivo de prueba.";
     const message = "Añadiendo otro archivo de prueba.";
+    const type= "Newsletter" 
 
     await checkOrCreateFork();
     await createBranch(branchName);
-    await createCommit(branchName, filename, content, message);
+    await createCommit(branchName, filename, content, message,type);
     await createPullRequest(branchName, message);
 }
 
