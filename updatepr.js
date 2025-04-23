@@ -113,7 +113,7 @@ async function markPRReadyForReviewGraphQL(branchName) {
 
 async function main() {
   // Verifica que "dev" corresponde a la rama en el upstream donde se creó el PR
-  const branchName = "dev";
+  const branchName = `dev-${FORK_OWNER}`;
   await markPRReadyForReviewGraphQL(branchName);
 }
 

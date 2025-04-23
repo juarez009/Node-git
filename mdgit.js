@@ -1,10 +1,12 @@
 require('dotenv').config();
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN; 
-const UPSTREAM_OWNER = "jramos0";  // Reemplázalo con el dueño del repositorio original
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const UPSTREAM_OWNER = "jramos0";
 const REPO = "BEC-Github";
-const FORK_OWNER = "juarez009"; // Reemplázalo con tu usuario de GitHub
+const FORK_OWNER = "juarez009";
 
 async function checkOrCreateFork() {
     try {
@@ -47,27 +49,40 @@ async function createBranch(branchName) {
     }
 }
 
-async function createCommit(branchName, filename, content, message, type) {
+async function createCommit(branchName, fileMap, message) {
     try {
         const branchData = await axios.get(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/ref/heads/${branchName}`, {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
         });
-        const baseSha = branchData.data.object.sha;
+        const baseCommitSha = branchData.data.object.sha;
 
-        const blob = await axios.post(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/blobs`, {
-            content: content,
-            encoding: "utf-8"
-        }, {
+        // Obtener el árbol base del último commit
+        const commitData = await axios.get(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/commits/${baseCommitSha}`, {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
         });
+        const baseTreeSha = commitData.data.tree.sha;
 
-        const treeData = await axios.get(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/trees/${baseSha}`, {
-            headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
-        });
+        const treeItems = [];
+
+        for (const [filepath, content] of Object.entries(fileMap)) {
+            const blob = await axios.post(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/blobs`, {
+                content,
+                encoding: "utf-8"
+            }, {
+                headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
+            });
+
+            treeItems.push({
+                path: filepath,
+                mode: "100644",
+                type: "blob",
+                sha: blob.data.sha
+            });
+        }
 
         const newTree = await axios.post(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/trees`, {
-            base_tree: treeData.data.sha,
-            tree: [{ path: `resources/${type}/${filename}`, mode: "100644", type: "blob", sha: blob.data.sha }]
+            base_tree: baseTreeSha,
+            tree: treeItems
         }, {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
         });
@@ -75,7 +90,7 @@ async function createCommit(branchName, filename, content, message, type) {
         const commit = await axios.post(`https://api.github.com/repos/${FORK_OWNER}/${REPO}/git/commits`, {
             message: message,
             tree: newTree.data.sha,
-            parents: [baseSha]
+            parents: [baseCommitSha]
         }, {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
         });
@@ -86,7 +101,7 @@ async function createCommit(branchName, filename, content, message, type) {
             headers: { Authorization: `Bearer ${GITHUB_TOKEN}` }
         });
 
-        console.log(`✅ Archivo '${filename}' subido en la rama '${branchName}'.`);
+        console.log(`✅ Commit creado con archivos en la rama '${branchName}'.`);
     } catch (error) {
         console.error(`❌ Error al hacer commit:`, error.response?.data || error.message);
     }
@@ -121,16 +136,30 @@ async function createPullRequest(branchName, message) {
     }
 }
 
+function readFilesFromDirectory(dirPath) {
+    const files = fs.readdirSync(dirPath);
+    const fileMap = {};
+
+    for (const file of files) {
+        const fullPath = path.join(dirPath, file);
+        if (fs.lstatSync(fullPath).isFile()) {
+            const content = fs.readFileSync(fullPath, 'utf-8');
+            const relativePath = path.join('resources/Newsletter', FORK_OWNER, file);
+            fileMap[relativePath] = content;
+        }
+    }
+
+    return fileMap;
+}
 async function main() {
-    const branchName = "dev"; 
-    const filename = "devop.md";
-    const content = "# Nuevo contenido\nEste es un archivo de prueba.";
+    const branchName = `dev-${FORK_OWNER}`;
+    const dir = `./mdgitjs`;
     const message = "Añadiendo otro archivo de prueba.";
-    const type= "Newsletter" 
+    const fileMap = readFilesFromDirectory(dir);
 
     await checkOrCreateFork();
     await createBranch(branchName);
-    await createCommit(branchName, filename, content, message,type);
+    await createCommit(branchName, fileMap, message);
     await createPullRequest(branchName, message);
 }
 
